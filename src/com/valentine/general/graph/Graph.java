@@ -1,6 +1,10 @@
 package com.valentine.general.graph;
 
+import java.io.*;
 import java.util.*;
+
+import com.google.gson.*;
+import com.valentine.general.graph.Graph.*;
 
 public final class Graph
 {
@@ -12,52 +16,91 @@ public final class Graph
 	
 	
 	
-	
-	
-	public static Graph makeInstance(double[] _weights, double[][] _edges)
+	public static final class Vertex implements Iterable<Edge>
 	{
-		Graph graph = null;
+		public final Parameters params;
 		
-		graph = new Graph();
-		
-		if (_weights != null)
+		private List<Edge> edges;
+
+		private Vertex()
 		{
-			for (double weight : _weights)
-			{
-				graph.vertices.add(Vertex.makeInstance(weight));
-			}
+			params = new Parameters();
+			edges = new ArrayList<>();
 		}
 		
-		if (_weights != null)
+		private void freeze()
 		{
-			for (double[] edgeData : _edges)
-			{
-				if (edgeData != null && edgeData.length >= 3)
-				{
-					if (edgeData.length >= 4)
-					{
-						Vertex.connect
-						(
-							graph.vertices.get((int)edgeData[0]),
-							graph.vertices.get((int)edgeData[1]),
-							(int)edgeData[2],
-							edgeData[3]
-						);
-					}
-					else
-					{
-						Vertex.connect
-						(
-							graph.vertices.get((int)edgeData[0]),
-							graph.vertices.get((int)edgeData[1]),
-							(int)edgeData[2]
-						);
-					}
-				}
-			}
+			edges = Collections.unmodifiableList(edges);
+		}
+
+		public Iterator<Edge> iterator()
+		{
+			return edges.iterator();
 		}
 		
-		return graph;
+	}
+	
+	public static final class Edge
+	{
+		
+		private Edge(Vertex _a, Vertex _b, Direction _direction)
+		{
+			params = new Parameters();
+			a = _a;
+			b = _b;
+			direction = _direction;
+			
+			a.edges.add(this);
+			b.edges.add(this);
+		}
+		
+		public final Direction direction;
+		
+		public final Parameters params;
+		
+		public final Vertex a;
+		public final Vertex b;
+		
+		
+		public static enum Direction
+		{
+			FORWARD,
+			BACKWARD,
+			BIDIRECT
+		}
+	}
+
+	
+	
+	
+	
+	private static final class GraphDataJson
+	{
+		private GraphDataJson(File _file) throws FileNotFoundException
+		{
+			Gson gson = new Gson();
+			Reader reader = new FileReader(_file);
+			GraphDataJson data = gson.fromJson(reader, GraphDataJson.class);
+			edges = data.edges;
+			vertices = data.vertices;
+		}
+		
+		private static final class EdgeDataJson
+		{
+			Parameters params;
+			int a;
+			int b;
+			boolean forward;
+			boolean backward;
+		}
+		
+		private static final class VertexDataJson
+		{
+			Parameters params;
+		}
+		
+		List<EdgeDataJson> edges;
+		List<VertexDataJson> vertices;
 	}
 	
 }
