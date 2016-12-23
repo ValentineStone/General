@@ -2,25 +2,20 @@ package com.valentine.general.binarytree;
 
 import java.util.*;
 
-public class BinaryTree<T extends Comparable<T>> implements Iterable<BinaryTree<T>>
+public class BinaryTree<T extends Comparable<T>> implements Iterable<BinaryTree<T>>, Comparable<BinaryTree<T>>
 {
 	private T object = null;
 	
 	protected int count = 0;
+	private int weight = 1;
+	private double balance = 0;
 	
-	public abstract class Compare
+	public final class Compare
 	{
 		private Compare(){}
 		public static final int LESS = -1;
 		public static final int GREATER = 1;
 		public static final int EQUAL = 0;
-	}
-	
-	public enum Side
-	{
-		TOP,
-		LEFT,
-		RIGHT
 	}
 	
 	private BinaryTree<T> top = null;
@@ -57,11 +52,6 @@ public class BinaryTree<T extends Comparable<T>> implements Iterable<BinaryTree<
 		}
 	}
 	
-	private BinaryTree(T _object, BinaryTree<T> _top)
-	{
-		this(_object, 1, _top);
-	}
-	
 	private BinaryTree(T _object, int _count, BinaryTree<T> _top)
 	{
 		top = _top;
@@ -74,6 +64,89 @@ public class BinaryTree<T extends Comparable<T>> implements Iterable<BinaryTree<
 	{
 		return count;
 	}
+	
+	public int getWeight()
+	{
+		return weight;
+	}
+	
+	public double getBalance()
+	{
+		return balance;
+	}
+	
+	private double makeBalance()
+	{
+		double down;
+		double up;
+		
+		down =
+			weight;
+		
+		up =
+			getRoot().weight
+			- weight
+			+ count;
+		
+		if (up == 0 || down == 0)
+		{
+			balance = 0;
+		}
+		else if (up < down)
+			balance = up / down;
+		else
+			balance = down / up;
+		
+		return balance;
+	}
+	
+	public void makeBalances()
+	{
+		makeBalance();
+		
+		if (getLeft() != null)
+		{
+			getLeft().makeBalances();
+		}
+		if (getRight() != null)
+		{
+			getRight().makeBalances();
+		}
+	}
+	
+	
+	
+	public BinaryTree<T> balanceOut()
+	{
+		makeBalances();
+		
+		TreeSet<BinaryTree<T>> treeSet =
+			new TreeSet<>(squash(true));
+		
+		BinaryTree<T> high = treeSet.first();
+		treeSet.remove(high);
+		
+		for (BinaryTree<T> low : treeSet)
+			high.add(low);
+		
+		high.makeBalances();
+		
+		TreeSet<BinaryTree<T>> treeSetRebalanced =
+			new TreeSet<>(high.squash(false));
+		treeSetRebalanced.remove(treeSetRebalanced.first());
+		
+		
+		if (!treeSetRebalanced.equals(treeSet))
+		{
+			System.err.println("NEQ ");
+			high = high.balanceOut();
+		}
+		
+		return high;
+	}
+	
+	
+	
 
 	public BinaryTree<T> getTop()
 	{
@@ -118,10 +191,13 @@ public class BinaryTree<T extends Comparable<T>> implements Iterable<BinaryTree<
 
 	public BinaryTree<T> add(T _object)
 	{
+		weight++;
+		
 		if (count == 0)
 		{
 			object = _object;
 			count = 1;
+			weight = 1;
 			return this;
 		}
 		
@@ -129,18 +205,42 @@ public class BinaryTree<T extends Comparable<T>> implements Iterable<BinaryTree<
 		{
 			case Compare.GREATER:
 				if (right == null)
-					right = makeInstance(_object, this);
+					right = makeInstance(_object, 1, this);
 				else
 					right.add(_object);
 				break;
 			case Compare.LESS:
 				if (left == null)
-					left = makeInstance(_object, this);
+					left = makeInstance(_object, 1, this);
 				else
 					left.add(_object);
 				break;
 			case Compare.EQUAL:
 				count++;
+		}
+		
+		return this;
+	}
+	
+	public BinaryTree<T> add(BinaryTree<T> _tree)
+	{
+		weight += _tree.weight;
+		_tree.top = this;
+		
+		switch (compare(object, _tree.object))
+		{
+			case Compare.GREATER:
+				if (right == null)
+					right = _tree;
+				else
+					right.add(_tree);
+				break;
+			case Compare.LESS:
+				if (left == null)
+					left = _tree;
+				else
+					left.add(_tree);
+				break;
 		}
 		
 		return this;
@@ -173,28 +273,10 @@ public class BinaryTree<T extends Comparable<T>> implements Iterable<BinaryTree<
 	
 	
 	
-	
-	
-	
-	
-	public BinaryTree<T> makeInstance(T _object)
+	protected BinaryTree<T> makeInstance(T _object, int _count, BinaryTree<T> _top)
 	{
-		return new BinaryTree<T>(_object);
+		return new BinaryTree<T>(_object, _count, _top);
 	}
-	
-	protected BinaryTree<T> makeInstance(T _object, BinaryTree<T> _top)
-	{
-		return new BinaryTree<T>(_object, _top);
-	}
-	
-	protected void setTop(BinaryTree<T> _top)
-	{
-		top = _top;
-	}
-
-	
-	
-	
 	
 	
 	
@@ -218,6 +300,12 @@ public class BinaryTree<T extends Comparable<T>> implements Iterable<BinaryTree<
 			.append(object.toString())
 			.append(']');
 		}
+		
+		sb
+			.append(":weight=")
+			.append(weight)
+			.append(",balance=")
+			.append(balance);
 		
 		return sb.toString();
 	}
@@ -296,23 +384,31 @@ public class BinaryTree<T extends Comparable<T>> implements Iterable<BinaryTree<
 	
 	
 	
-	public List<BinaryTree<T>> squash()
+	public List<BinaryTree<T>> squash(boolean _clear)
 	{
-		return squash(new ArrayList<>());
+		return squash(new ArrayList<>(), _clear);
 	}
 	
-	protected List<BinaryTree<T>> squash(List<BinaryTree<T>> _list)
+	protected List<BinaryTree<T>> squash(List<BinaryTree<T>> _list, boolean _clear)
 	{
 		if (left != null)
 		{
-			left.squash(_list);
+			left.squash(_list, _clear);
 		}
 		
 		_list.add(this);
 		
 		if (right != null)
 		{
-			right.squash(_list);
+			right.squash(_list, _clear);
+		}
+		
+		if (_clear)
+		{
+			left = null;
+			right = null;
+			top = null;
+			weight = count;
 		}
 		
 		return _list;
@@ -322,70 +418,13 @@ public class BinaryTree<T extends Comparable<T>> implements Iterable<BinaryTree<
 	
 	public Iterator<BinaryTree<T>> iterator()
 	{
-		return squash().iterator();
+		return squash(false).iterator();
 	}
 	
-	/*
-	public Iterator<BinaryTree<T>> iterator()
-	{
-		return new Iterator<BinaryTree<T>>()
-		{
-			private BinaryTree<T> currentNode = left != null ? left : right;
-			
-			private Side side = Side.LEFT;
-			
-			private Iterator<BinaryTree<T>> leftIterator;
-			private Iterator<BinaryTree<T>> rightIterator;
-			
-			{
-				if (left != null)
-				{
-					leftIterator = left.iterator();
-				}
-				else
-				{
-					leftIterator = Collections.emptyIterator();
-				}
-				
-				if (right != null)
-				{
-					rightIterator = left.iterator();
-				}
-				else
-				{
-					rightIterator = Collections.emptyIterator();
-				}
-			}
-			
-			public boolean hasNext()
-			{
-				switch (side)
-				{
-					case LEFT:
-						return leftIterator.hasNext() || rightIterator.hasNext();
-					case RIGHT:
-						return rightIterator.hasNext();
-					default:
-						return false;
-				}
-			}
+	
 
-			public BinaryTree<T> next()
-			{
-				switch (side)
-				{
-					case LEFT:
-						if (left != null && (leftIterator = left.iterator()).hasNext())
-						{
-							return leftIterator.next();
-						}
-					case RIGHT:
-						return right;
-					default:
-						return null;
-				}
-			}
-		};
+	public int compareTo(BinaryTree<T> _o)
+	{
+		return -Double.compare(balance, _o.balance);
 	}
-	*/
 }
